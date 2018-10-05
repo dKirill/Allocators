@@ -56,7 +56,7 @@ namespace allocators {
 			m_firstFree = ObjectCount; // past the end
 		}
 		
-		alignas(step) BufferType m_buffer;
+		alignas(T) BufferType m_buffer;
 		Bitset m_occupation = Bitset(ObjectCount);
 		size_t m_firstFree = 0;
 	};
@@ -71,7 +71,7 @@ namespace allocators {
 		using propagate_on_container_copy_assignment = std::true_type;
 		using propagate_on_container_move_assignment = std::true_type;
 		using propagate_on_container_swap = std::true_type;
-		template< class U > struct rebind { using other = BufferizedAllocator<U>; };
+		template< class U > struct rebind { using other = BufferizedAllocator<U, SingleBufferObjectCount>; };
 		// other traits are OK by default
 		
 		// MARK: Allocator types
@@ -94,7 +94,7 @@ namespace allocators {
 		}
 		
 		/********************************************************************************/
-		[[nodiscard]] T* allocate(const size_t n) {
+		[[nodiscard]] inline T* allocate(const size_t n) {
 			DEB("n=" << n);
 			// if requested contigious length is greater than single buffer length, throw
 			if(n > SingleBufferObjectCount)
@@ -105,7 +105,7 @@ namespace allocators {
 				size_t freeInARow = 0;
 				
 				for(auto idx = buffer->m_firstFree;
-					idx < buffer->m_occupation.size(); 
+					idx < SingleBufferObjectCount;
 					++idx) {
 					if(buffer->m_occupation[idx] == false) {
 						++freeInARow;
@@ -144,7 +144,7 @@ namespace allocators {
 		}
 		
 		/********************************************************************************/
-		void deallocate(T* p, const std::size_t n) noexcept {
+		inline void deallocate(T* p, const std::size_t n) noexcept {
 			DEB("p=" << reinterpret_cast<uint64_t>(p) << " n=" << n);
 			// first find buffer that contains p
 			const auto uppBound = std::upper_bound(
@@ -201,7 +201,7 @@ namespace allocators {
 	/************************************************************************************/
 	// If the types are the same, have to compare addrs
 	template <class T, class U>
-	typename std::enable_if<std::is_same<T, U>::value, bool>::type
+	inline typename std::enable_if<std::is_same<T, U>::value, bool>::type
 	operator==(
 		const BufferizedAllocator<T>& first,
 		const BufferizedAllocator<U>& second) {
@@ -210,7 +210,7 @@ namespace allocators {
 	
 	/************************************************************************************/
 	template <class T, class U>
-	bool operator!=(
+	inline bool operator!=(
 		const BufferizedAllocator<T>& first,
 		const BufferizedAllocator<U>& second) {
 		return &first != &second;
